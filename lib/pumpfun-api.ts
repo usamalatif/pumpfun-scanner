@@ -8,6 +8,15 @@ import { analyzeTokenUtility } from './utility-analyzer';
 
 const PUMPFUN_API_URL = process.env.PUMPFUN_API_URL || 'https://frontend-api.pump.fun';
 
+// Browser-like headers to pass Cloudflare checks on server-side requests
+const BROWSER_HEADERS: Record<string, string> = {
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Origin': 'https://pump.fun',
+  'Referer': 'https://pump.fun/',
+};
+
 export async function fetchTrendingTokens(
   limit: number = 50,
   offset: number = 0,
@@ -18,11 +27,8 @@ export async function fetchTrendingTokens(
   const url = `${PUMPFUN_API_URL}/coins?offset=${offset}&limit=${limit}&sort=${sort}&order=${order}&includeNsfw=${includeNsfw}`;
 
   const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'PumpFun-Analytics-Dashboard/1.0',
-    },
-    next: { revalidate: 15 },
+    headers: BROWSER_HEADERS,
+    cache: 'no-store',
   });
 
   if (!response.ok) {
@@ -37,11 +43,8 @@ export async function fetchTokenByMint(mint: string): Promise<PumpFunToken> {
   const url = `${PUMPFUN_API_URL}/coins/${mint}`;
 
   const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'PumpFun-Analytics-Dashboard/1.0',
-    },
-    next: { revalidate: 15 },
+    headers: BROWSER_HEADERS,
+    cache: 'no-store',
   });
 
   if (!response.ok) {

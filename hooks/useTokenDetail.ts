@@ -1,28 +1,13 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { AnalyzedToken, PumpFunToken } from '@/lib/types';
-import { analyzeTokenUtility } from '@/lib/utility-analyzer';
+import { AnalyzedToken } from '@/lib/types';
 
-const PUMPFUN_API_URL = 'https://frontend-api.pump.fun';
-
-// Fetch directly from pump.fun client-side to avoid Cloudflare blocking server-side requests
 async function fetchTokenDetail(mint: string): Promise<AnalyzedToken> {
-  const url = `${PUMPFUN_API_URL}/coins/${mint}`;
-
-  const response = await fetch(url, {
-    headers: { 'Accept': 'application/json' },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Token not found: ${response.status}`);
-  }
-
-  const token: PumpFunToken = await response.json();
-  return {
-    ...token,
-    analysis: analyzeTokenUtility(token),
-  };
+  const res = await fetch(`/api/tokens/${mint}`);
+  if (!res.ok) throw new Error('Failed to fetch token details');
+  const json = await res.json();
+  return json.data;
 }
 
 export function useTokenDetail(mint: string) {

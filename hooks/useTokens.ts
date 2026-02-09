@@ -1,11 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { AnalyzedToken, PumpFunToken, TokenFilters, SortField } from '@/lib/types';
-import { analyzeTokenUtility } from '@/lib/utility-analyzer';
+import { AnalyzedToken, TokenFilters, SortField } from '@/lib/types';
 import { useMemo, useState, useCallback } from 'react';
-
-const PUMPFUN_API_URL = 'https://frontend-api.pump.fun';
 
 const DEFAULT_FILTERS: TokenFilters = {
   search: '',
@@ -20,25 +17,11 @@ const DEFAULT_FILTERS: TokenFilters = {
   sortOrder: 'desc',
 };
 
-// Fetch directly from pump.fun client-side to avoid Cloudflare blocking server-side requests
 async function fetchTokens(limit: number = 50): Promise<AnalyzedToken[]> {
-  const url = `${PUMPFUN_API_URL}/coins?offset=0&limit=${limit}&sort=market_cap&order=DESC&includeNsfw=false`;
-
-  const response = await fetch(url, {
-    headers: { 'Accept': 'application/json' },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch tokens: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const tokens: PumpFunToken[] = Array.isArray(data) ? data : [];
-
-  return tokens.map((token) => ({
-    ...token,
-    analysis: analyzeTokenUtility(token),
-  }));
+  const res = await fetch(`/api/tokens/trending?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch tokens');
+  const json = await res.json();
+  return json.data || [];
 }
 
 export function useTokens(

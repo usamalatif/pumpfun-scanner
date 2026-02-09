@@ -1,6 +1,7 @@
 // ============================================================================
 // Pump.fun API Client
-// Tries pump.fun first, falls back to DexScreener for real Solana token data
+// Primary: pump.fun API
+// Fallback: GeckoTerminal (pump.fun DEX pools) + DexScreener (metadata)
 // ============================================================================
 
 import { PumpFunToken, AnalyzedToken, TokenStats, Classification } from './types';
@@ -16,17 +17,16 @@ const PUMPFUN_ENDPOINTS = [
 ];
 
 const BROWSER_HEADERS: Record<string, string> = {
-  'Accept': 'application/json, text/plain, */*',
+  Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Origin': 'https://pump.fun',
-  'Referer': 'https://pump.fun/',
+  Origin: 'https://pump.fun',
+  Referer: 'https://pump.fun/',
 };
 
 async function fetchFromPumpFun(path: string): Promise<Response> {
   let lastError: Error | null = null;
-
   for (const baseUrl of PUMPFUN_ENDPOINTS) {
     try {
       const response = await fetch(`${baseUrl}${path}`, {
@@ -39,22 +39,59 @@ async function fetchFromPumpFun(path: string): Promise<Response> {
       lastError = e instanceof Error ? e : new Error(String(e));
     }
   }
-
   throw lastError || new Error('All pump.fun endpoints failed');
 }
 
 // ============================================================================
-// DexScreener API (fallback - real Solana token data)
+// GeckoTerminal API (fallback - pump.fun specific pools on Solana)
+// Free, no API key, has pump.fun as a registered DEX (id: "pump-fun")
 // ============================================================================
 
+const GECKO_API = 'https://api.geckoterminal.com/api/v2';
 const DEXSCREENER_API = 'https://api.dexscreener.com';
 
-interface DexScreenerProfile {
-  chainId: string;
-  tokenAddress: string;
-  icon?: string;
-  description?: string;
-  links?: Array<{ type: string; label: string; url: string }>;
+interface GeckoPoolAttributes {
+  address: string;
+  name: string;
+  pool_created_at: string;
+  fdv_usd: string | null;
+  market_cap_usd: string | null;
+  base_token_price_usd: string | null;
+  price_change_percentage: Record<string, string | null>;
+  transactions: Record<
+    string,
+    { buys: number; sells: number; buyers: number; sellers: number }
+  >;
+  volume_usd: Record<string, string | null>;
+  reserve_in_usd: string | null;
+}
+
+interface GeckoPool {
+  id: string;
+  type: 'pool';
+  attributes: GeckoPoolAttributes;
+  relationships: {
+    base_token: { data: { id: string; type: string } };
+    quote_token: { data: { id: string; type: string } };
+    dex: { data: { id: string; type: string } };
+  };
+}
+
+interface GeckoToken {
+  id: string;
+  type: 'token';
+  attributes: {
+    address: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    image_url: string | null;
+  };
+}
+
+interface GeckoResponse {
+  data: GeckoPool[];
+  included?: GeckoToken[];
 }
 
 interface DexScreenerPair {
@@ -62,16 +99,6 @@ interface DexScreenerPair {
   dexId: string;
   pairAddress: string;
   baseToken: { address: string; name: string; symbol: string };
-  quoteToken: { address: string; name: string; symbol: string };
-  priceUsd?: string;
-  txns?: {
-    h24?: { buys: number; sells: number };
-  };
-  volume?: { h24?: number };
-  liquidity?: { usd?: number };
-  fdv?: number;
-  marketCap?: number;
-  pairCreatedAt?: number;
   info?: {
     imageUrl?: string;
     websites?: Array<{ label: string; url: string }>;
@@ -79,168 +106,240 @@ interface DexScreenerPair {
   };
 }
 
-function extractSocial(
-  profile: DexScreenerProfile | undefined,
-  pair: DexScreenerPair,
-  type: 'twitter' | 'telegram' | 'website'
-): string | null {
-  // Check profile links first (more complete)
-  if (profile?.links) {
-    const link = profile.links.find((l) => l.type === type);
-    if (link?.url) {
-      if (type === 'website') return link.url;
-      return link.url.split('/').pop() || null;
-    }
-  }
-  // Fall back to pair info
-  if (type === 'website') {
-    return pair.info?.websites?.[0]?.url || null;
-  }
-  const social = pair.info?.socials?.find((s) => s.type === type);
-  if (social?.url) {
-    return social.url.split('/').pop() || null;
-  }
-  return null;
-}
-
-function mapDexScreenerToToken(
-  pair: DexScreenerPair,
-  profile?: DexScreenerProfile
-): PumpFunToken {
-  const mcap = pair.marketCap || pair.fdv || 0;
-
-  return {
-    mint: pair.baseToken.address,
-    name: pair.baseToken.name,
-    symbol: pair.baseToken.symbol,
-    description: profile?.description || '',
-    image_uri: profile?.icon || pair.info?.imageUrl || '',
-    metadata_uri: '',
-    twitter: extractSocial(profile, pair, 'twitter'),
-    telegram: extractSocial(profile, pair, 'telegram'),
-    bonding_curve: '',
-    associated_bonding_curve: '',
-    creator: '',
-    created_timestamp: pair.pairCreatedAt || Date.now(),
-    raydium_pool: pair.dexId === 'raydium' ? pair.pairAddress : null,
-    complete: true,
-    virtual_sol_reserves: 0,
-    virtual_token_reserves: 0,
-    total_supply: 1_000_000_000,
-    website: extractSocial(profile, pair, 'website'),
-    show_name: true,
-    king_of_the_hill_timestamp: null,
-    market_cap: mcap / 150,
-    reply_count: pair.txns?.h24
-      ? pair.txns.h24.buys + pair.txns.h24.sells
-      : 0,
-    last_reply: Date.now(),
-    nsfw: false,
-    market_id: null,
-    inverted: null,
-    usd_market_cap: mcap,
-    username: null,
-    profile_image: null,
-  };
-}
-
-async function fetchTrendingFromDexScreener(
+async function fetchPumpFunFromGeckoTerminal(
   limit: number
 ): Promise<PumpFunToken[]> {
-  // Step 1: Get latest Solana token profiles (descriptions + social links)
-  const profilesRes = await fetch(
-    `${DEXSCREENER_API}/token-profiles/latest/v1`,
-    { cache: 'no-store' }
+  const pages = Math.ceil(Math.min(limit, 120) / 20);
+
+  // Step 1: Fetch pump.fun pools sorted by 24h activity (concurrent)
+  const pagePromises = Array.from({ length: pages }, (_, i) =>
+    fetch(
+      `${GECKO_API}/networks/solana/dexes/pump-fun/pools?page=${i + 1}&sort=h24_tx_count_desc&include=base_token`,
+      { cache: 'no-store' }
+    )
+      .then((r) => (r.ok ? (r.json() as Promise<GeckoResponse>) : null))
+      .catch(() => null)
   );
-  if (!profilesRes.ok)
-    throw new Error(`DexScreener profiles: ${profilesRes.status}`);
 
-  const allProfiles: DexScreenerProfile[] = await profilesRes.json();
-  const solanaProfiles = allProfiles
-    .filter((p) => p.chainId === 'solana')
-    .slice(0, limit);
+  const results = await Promise.all(pagePromises);
 
-  if (solanaProfiles.length === 0) {
-    throw new Error('No Solana token profiles on DexScreener');
+  const pools: GeckoPool[] = [];
+  const geckoTokenMap = new Map<string, GeckoToken>();
+
+  for (const result of results) {
+    if (!result) continue;
+    if (result.data) pools.push(...result.data);
+    if (result.included) {
+      for (const item of result.included) {
+        if (item.type === 'token') {
+          geckoTokenMap.set(item.id, item);
+        }
+      }
+    }
   }
 
-  // Step 2: Batch-fetch pair data for market caps (max 30 per request)
-  const addresses = solanaProfiles.map((p) => p.tokenAddress);
-  const allPairs: DexScreenerPair[] = [];
+  if (pools.length === 0) {
+    throw new Error('No pump.fun pools found on GeckoTerminal');
+  }
+
+  // Step 2: Deduplicate by token address, keep highest-activity pool
+  const uniqueTokens: Array<{ pool: GeckoPool; token: GeckoToken }> = [];
+  const seen = new Set<string>();
+
+  for (const pool of pools) {
+    const tokenId = pool.relationships?.base_token?.data?.id;
+    const geckoToken = geckoTokenMap.get(tokenId);
+    if (!geckoToken) continue;
+
+    const address = geckoToken.attributes.address;
+    if (seen.has(address)) continue;
+    seen.add(address);
+    uniqueTokens.push({ pool, token: geckoToken });
+  }
+
+  // Step 3: Enrich with DexScreener metadata (websites, socials) in batches
+  const addresses = uniqueTokens.map((t) => t.token.attributes.address);
+  const dexMetadata = new Map<string, DexScreenerPair>();
   const batchSize = 30;
 
+  const batchPromises = [];
   for (let i = 0; i < addresses.length; i += batchSize) {
     const batch = addresses.slice(i, i + batchSize).join(',');
-    try {
-      const pairsRes = await fetch(
-        `${DEXSCREENER_API}/latest/dex/tokens/${batch}`,
-        { cache: 'no-store' }
-      );
-      if (pairsRes.ok) {
-        const pairsData = await pairsRes.json();
-        if (pairsData.pairs) allPairs.push(...pairsData.pairs);
+    batchPromises.push(
+      fetch(`${DEXSCREENER_API}/latest/dex/tokens/${batch}`, {
+        cache: 'no-store',
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+    );
+  }
+
+  const dexResults = await Promise.all(batchPromises);
+  for (const result of dexResults) {
+    if (!result?.pairs) continue;
+    for (const pair of result.pairs as DexScreenerPair[]) {
+      if (pair.chainId !== 'solana') continue;
+      const addr = pair.baseToken.address;
+      // Keep the pair with the most metadata
+      const existing = dexMetadata.get(addr);
+      if (!existing || (pair.info && !existing.info)) {
+        dexMetadata.set(addr, pair);
       }
-    } catch {
-      // continue with remaining batches
     }
   }
 
-  // Step 3: Map each address to its best pair (highest liquidity)
-  const pairMap = new Map<string, DexScreenerPair>();
-  for (const pair of allPairs) {
-    if (pair.chainId !== 'solana') continue;
-    const addr = pair.baseToken.address;
-    const existing = pairMap.get(addr);
-    if (
-      !existing ||
-      (pair.liquidity?.usd || 0) > (existing.liquidity?.usd || 0)
-    ) {
-      pairMap.set(addr, pair);
-    }
-  }
+  // Step 4: Build PumpFunToken array
+  const tokens: PumpFunToken[] = uniqueTokens.map(({ pool, token }) => {
+    const addr = token.attributes.address;
+    const dex = dexMetadata.get(addr);
+    const mcap = parseFloat(
+      pool.attributes.market_cap_usd || pool.attributes.fdv_usd || '0'
+    );
+    const h24Txns = pool.attributes.transactions?.h24;
 
-  // Step 4: Combine profiles + pairs → PumpFunToken[]
-  const tokens: PumpFunToken[] = [];
+    const website = dex?.info?.websites?.[0]?.url || null;
+    const twitterUrl = dex?.info?.socials?.find(
+      (s) => s.type === 'twitter'
+    )?.url;
+    const telegramUrl = dex?.info?.socials?.find(
+      (s) => s.type === 'telegram'
+    )?.url;
 
-  for (const profile of solanaProfiles) {
-    const pair = pairMap.get(profile.tokenAddress);
-    if (pair) {
-      tokens.push(mapDexScreenerToToken(pair, profile));
-    }
-  }
+    return {
+      mint: addr,
+      name: token.attributes.name,
+      symbol: token.attributes.symbol,
+      description: '',
+      image_uri: token.attributes.image_url || dex?.info?.imageUrl || '',
+      metadata_uri: '',
+      twitter: twitterUrl ? twitterUrl.split('/').pop() || null : null,
+      telegram: telegramUrl ? telegramUrl.split('/').pop() || null : null,
+      bonding_curve: '',
+      associated_bonding_curve: '',
+      creator: '',
+      created_timestamp: new Date(
+        pool.attributes.pool_created_at
+      ).getTime(),
+      raydium_pool: null,
+      complete: true,
+      virtual_sol_reserves: 0,
+      virtual_token_reserves: 0,
+      total_supply: 1_000_000_000,
+      website,
+      show_name: true,
+      king_of_the_hill_timestamp: null,
+      market_cap: mcap / 150,
+      reply_count: h24Txns ? h24Txns.buys + h24Txns.sells : 0,
+      last_reply: Date.now(),
+      nsfw: false,
+      market_id: null,
+      inverted: null,
+      usd_market_cap: mcap,
+      username: null,
+      profile_image: null,
+    };
+  });
 
   // Sort by market cap descending
   tokens.sort((a, b) => (b.usd_market_cap || 0) - (a.usd_market_cap || 0));
 
-  return tokens;
+  return tokens.slice(0, limit);
 }
 
-async function fetchTokenFromDexScreener(
+async function fetchTokenFromGeckoTerminal(
   mint: string
-): Promise<PumpFunToken> {
-  const res = await fetch(`${DEXSCREENER_API}/latest/dex/tokens/${mint}`, {
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`DexScreener: ${res.status}`);
-
-  const data = await res.json();
-  if (!data.pairs || data.pairs.length === 0) {
-    throw new Error('Token not found on DexScreener');
-  }
-
-  // Find best Solana pair by liquidity
-  const solanaPairs = data.pairs
-    .filter((p: DexScreenerPair) => p.chainId === 'solana')
-    .sort(
-      (a: DexScreenerPair, b: DexScreenerPair) =>
-        (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+): Promise<PumpFunToken | null> {
+  try {
+    const res = await fetch(
+      `${GECKO_API}/networks/solana/tokens/${mint}/pools?page=1&include=base_token`,
+      { cache: 'no-store' }
     );
+    if (!res.ok) return null;
 
-  if (solanaPairs.length === 0) {
-    throw new Error('No Solana pairs found for this token');
+    const data: GeckoResponse = await res.json();
+    if (!data.data || data.data.length === 0) return null;
+
+    const pool = data.data[0];
+    const tokenId = pool.relationships?.base_token?.data?.id;
+    const geckoToken = data.included?.find(
+      (t) => t.type === 'token' && t.id === tokenId
+    );
+    if (!geckoToken) return null;
+
+    const mcap = parseFloat(
+      pool.attributes.market_cap_usd || pool.attributes.fdv_usd || '0'
+    );
+    const h24Txns = pool.attributes.transactions?.h24;
+
+    // Try DexScreener for social metadata
+    let website: string | null = null;
+    let twitter: string | null = null;
+    let telegram: string | null = null;
+    let imageUrl = geckoToken.attributes.image_url || '';
+
+    try {
+      const dexRes = await fetch(
+        `${DEXSCREENER_API}/latest/dex/tokens/${mint}`,
+        { cache: 'no-store' }
+      );
+      if (dexRes.ok) {
+        const dexData = await dexRes.json();
+        const pair = dexData.pairs?.find(
+          (p: DexScreenerPair) => p.chainId === 'solana'
+        );
+        if (pair?.info) {
+          website = pair.info.websites?.[0]?.url || null;
+          const tw = pair.info.socials?.find(
+            (s: { type: string; url: string }) => s.type === 'twitter'
+          )?.url;
+          const tg = pair.info.socials?.find(
+            (s: { type: string; url: string }) => s.type === 'telegram'
+          )?.url;
+          twitter = tw ? tw.split('/').pop() || null : null;
+          telegram = tg ? tg.split('/').pop() || null : null;
+          imageUrl = imageUrl || pair.info.imageUrl || '';
+        }
+      }
+    } catch {
+      // DexScreener enrichment is optional
+    }
+
+    return {
+      mint,
+      name: geckoToken.attributes.name,
+      symbol: geckoToken.attributes.symbol,
+      description: '',
+      image_uri: imageUrl,
+      metadata_uri: '',
+      twitter,
+      telegram,
+      bonding_curve: '',
+      associated_bonding_curve: '',
+      creator: '',
+      created_timestamp: new Date(
+        pool.attributes.pool_created_at
+      ).getTime(),
+      raydium_pool: null,
+      complete: true,
+      virtual_sol_reserves: 0,
+      virtual_token_reserves: 0,
+      total_supply: 1_000_000_000,
+      website,
+      show_name: true,
+      king_of_the_hill_timestamp: null,
+      market_cap: mcap / 150,
+      reply_count: h24Txns ? h24Txns.buys + h24Txns.sells : 0,
+      last_reply: Date.now(),
+      nsfw: false,
+      market_id: null,
+      inverted: null,
+      usd_market_cap: mcap,
+      username: null,
+      profile_image: null,
+    };
+  } catch {
+    return null;
   }
-
-  return mapDexScreenerToToken(solanaPairs[0]);
 }
 
 // ============================================================================
@@ -262,18 +361,20 @@ export async function fetchTrendingTokens(
     const data = await response.json();
     if (Array.isArray(data) && data.length > 0) return data;
   } catch {
-    console.warn('pump.fun API blocked, falling back to DexScreener...');
+    console.warn('pump.fun API blocked, falling back to GeckoTerminal...');
   }
 
-  // Strategy 2: DexScreener (real Solana token data)
+  // Strategy 2: GeckoTerminal pump.fun pools + DexScreener metadata
   try {
-    const tokens = await fetchTrendingFromDexScreener(limit);
+    const tokens = await fetchPumpFunFromGeckoTerminal(limit);
     if (tokens.length > 0) {
-      console.log(`Loaded ${tokens.length} real tokens from DexScreener`);
+      console.log(
+        `Loaded ${tokens.length} pump.fun tokens from GeckoTerminal`
+      );
       return tokens;
     }
   } catch (e) {
-    console.warn('DexScreener fallback also failed:', e);
+    console.warn('GeckoTerminal fallback failed:', e);
   }
 
   return [];
@@ -286,13 +387,14 @@ export async function fetchTokenByMint(mint: string): Promise<PumpFunToken> {
     const data = await response.json();
     if (data && data.mint) return data;
   } catch {
-    console.warn(
-      'pump.fun API failed for token lookup, trying DexScreener...'
-    );
+    console.warn('pump.fun API failed, trying GeckoTerminal...');
   }
 
-  // Strategy 2: DexScreener token lookup
-  return fetchTokenFromDexScreener(mint);
+  // Strategy 2: GeckoTerminal + DexScreener
+  const token = await fetchTokenFromGeckoTerminal(mint);
+  if (token) return token;
+
+  throw new Error('Token not found - all API sources failed');
 }
 
 export function analyzeTokens(tokens: PumpFunToken[]): AnalyzedToken[] {

@@ -14,6 +14,7 @@ const badgeVariants = cva(
         utility: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
         meme: 'border-purple-500/20 bg-purple-500/10 text-purple-500',
         hybrid: 'border-amber-500/20 bg-amber-500/10 text-amber-500',
+        pumpfun: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-400',
         unknown: 'border-gray-500/20 bg-gray-500/10 text-gray-400',
       },
     },

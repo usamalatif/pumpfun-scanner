@@ -69,6 +69,7 @@ export type Classification =
   | 'Likely Utility Token'
   | 'Possible Utility/Hybrid'
   | 'Likely Meme Token'
+  | 'Pump.fun Token'
   | 'Unknown/Speculative';
 
 export interface ScoreBreakdown {

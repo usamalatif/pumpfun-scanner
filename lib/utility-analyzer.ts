@@ -64,7 +64,7 @@ export function analyzeTokenUtility(token: PumpFunToken): UtilityAnalysis {
   };
 
   // Determine classification
-  const classification = classifyToken(totalUtility, totalMeme, foundMemeKeywords.length);
+  const classification = classifyToken(totalUtility, totalMeme, foundMemeKeywords.length, token.isPumpFun);
 
   return {
     classification,
@@ -83,7 +83,8 @@ export function analyzeTokenUtility(token: PumpFunToken): UtilityAnalysis {
 function classifyToken(
   utilityScore: number,
   memeScore: number,
-  memeKeywordCount: number
+  memeKeywordCount: number,
+  isPumpFun?: boolean
 ): Classification {
   if (utilityScore >= 6 && memeKeywordCount <= 1) {
     return 'Likely Utility Token';
@@ -93,6 +94,9 @@ function classifyToken(
   }
   if (memeKeywordCount >= 2 || memeScore >= 3) {
     return 'Likely Meme Token';
+  }
+  if (isPumpFun) {
+    return 'Pump.fun Token';
   }
   return 'Unknown/Speculative';
 }

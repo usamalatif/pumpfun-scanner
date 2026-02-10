@@ -6,8 +6,9 @@ import { UtilityScoreBadge } from './UtilityScoreBadge';
 import { SocialLinks } from './SocialLinks';
 import { Button } from '@/components/ui/button';
 import { AnalyzedToken, SortField } from '@/lib/types';
-import { formatMarketCap, formatTimeAgo } from '@/lib/utils';
-import { ArrowUpDown, Eye } from 'lucide-react';
+import { formatMarketCap } from '@/lib/utils';
+import { ArrowUpDown, Eye, TrendingUp, TrendingDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface TokenTableProps {
   tokens: AnalyzedToken[];
@@ -57,12 +58,13 @@ export function TokenTable({ tokens, sortBy, onSort }: TokenTableProps) {
               <SortHeader label="Market Cap" field="market_cap" currentSort={sortBy} onSort={onSort} />
             </th>
             <th className="text-left py-3 px-4 font-medium">
-              <SortHeader label="Created" field="created_timestamp" currentSort={sortBy} onSort={onSort} />
+              <SortHeader label="24h Change" field="price_change" currentSort={sortBy} onSort={onSort} />
             </th>
-            <th className="text-left py-3 px-4 font-medium">Socials</th>
             <th className="text-left py-3 px-4 font-medium">
-              <SortHeader label="Activity" field="reply_count" currentSort={sortBy} onSort={onSort} />
+              <SortHeader label="Volume 24h" field="volume24h" currentSort={sortBy} onSort={onSort} />
             </th>
+            <th className="text-left py-3 px-4 font-medium">Source</th>
+            <th className="text-left py-3 px-4 font-medium">Socials</th>
             <th className="text-right py-3 px-4 font-medium">Actions</th>
           </tr>
         </thead>
@@ -105,8 +107,25 @@ export function TokenTable({ tokens, sortBy, onSort }: TokenTableProps) {
               <td className="py-3 px-4 font-mono text-xs">
                 {formatMarketCap(token.usd_market_cap)}
               </td>
-              <td className="py-3 px-4 text-xs text-muted-foreground">
-                {formatTimeAgo(token.created_timestamp)}
+              <td className="py-3 px-4">
+                {token.price24hChangePercent != null ? (
+                  <span className={`text-xs font-medium flex items-center gap-0.5 ${token.price24hChangePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                    {token.price24hChangePercent >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {token.price24hChangePercent >= 0 ? '+' : ''}{token.price24hChangePercent.toFixed(1)}%
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">-</span>
+                )}
+              </td>
+              <td className="py-3 px-4 font-mono text-xs">
+                {token.volume24hUSD ? formatMarketCap(token.volume24hUSD) : '-'}
+              </td>
+              <td className="py-3 px-4">
+                {token.isPumpFun ? (
+                  <Badge variant="pumpfun" className="text-[10px] px-1.5 py-0">Pump.fun</Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Solana</span>
+                )}
               </td>
               <td className="py-3 px-4">
                 <SocialLinks
@@ -115,9 +134,6 @@ export function TokenTable({ tokens, sortBy, onSort }: TokenTableProps) {
                   twitter={token.twitter}
                   size="sm"
                 />
-              </td>
-              <td className="py-3 px-4 text-xs text-muted-foreground">
-                {token.reply_count} replies
               </td>
               <td className="py-3 px-4 text-right">
                 <Link href={`/tokens/${token.mint}`}>

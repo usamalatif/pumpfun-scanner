@@ -14,6 +14,7 @@ import {
   Shuffle,
   Theater,
   HelpCircle,
+  Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +49,9 @@ export default function DashboardPage() {
   ).length;
   const memeCount = allTokens.filter(
     (t) => t.analysis.classification === 'Likely Meme Token'
+  ).length;
+  const pumpFunCount = allTokens.filter(
+    (t) => t.analysis.classification === 'Pump.fun Token'
   ).length;
   const totalMarketCap = allTokens.reduce((sum, t) => sum + (t.usd_market_cap || 0), 0);
 
@@ -114,11 +118,11 @@ export default function DashboardPage() {
           color="bg-gradient-to-br from-emerald-500 to-green-500"
         />
         <StatsCard
-          title="Meme Tokens"
-          value={memeCount}
-          description={`${allTokens.length > 0 ? ((memeCount / allTokens.length) * 100).toFixed(1) : 0}% of total`}
-          icon={Theater}
-          color="bg-gradient-to-br from-purple-500 to-pink-500"
+          title="Pump.fun Tokens"
+          value={pumpFunCount}
+          description={`${allTokens.length > 0 ? ((pumpFunCount / allTokens.length) * 100).toFixed(1) : 0}% of total`}
+          icon={Rocket}
+          color="bg-gradient-to-br from-cyan-500 to-blue-500"
         />
         <StatsCard
           title="Total Market Cap"
@@ -146,6 +150,15 @@ export default function DashboardPage() {
         >
           <Target className="h-3.5 w-3.5 mr-1" />
           Utility ({utilityCount})
+        </Button>
+        <Button
+          variant={classificationFilter === 'Pump.fun Token' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => updateFilters({ classification: 'Pump.fun Token' })}
+          className="border-cyan-500/30"
+        >
+          <Rocket className="h-3.5 w-3.5 mr-1" />
+          Pump.fun ({pumpFunCount})
         </Button>
         <Button
           variant={classificationFilter === 'Likely Meme Token' ? 'default' : 'outline'}

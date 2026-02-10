@@ -50,6 +50,8 @@ export function getClassificationColor(classification: Classification): string {
       return '#F59E0B';
     case 'Likely Meme Token':
       return '#A855F7';
+    case 'Pump.fun Token':
+      return '#22D3EE';
     case 'Unknown/Speculative':
       return '#6B7280';
   }
@@ -63,6 +65,8 @@ export function getClassificationEmoji(classification: Classification): string {
       return '🔀';
     case 'Likely Meme Token':
       return '🎭';
+    case 'Pump.fun Token':
+      return '🚀';
     case 'Unknown/Speculative':
       return '❓';
   }
@@ -76,6 +80,8 @@ export function getClassificationBgClass(classification: Classification): string
       return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
     case 'Likely Meme Token':
       return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
+    case 'Pump.fun Token':
+      return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
     case 'Unknown/Speculative':
       return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
   }

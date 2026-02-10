@@ -532,6 +532,7 @@ export function computeStats(tokens: AnalyzedToken[]): TokenStats {
     'Likely Utility Token': 0,
     'Possible Utility/Hybrid': 0,
     'Likely Meme Token': 0,
+    'Pump.fun Token': 0,
     'Unknown/Speculative': 0,
   };
 
@@ -539,6 +540,7 @@ export function computeStats(tokens: AnalyzedToken[]): TokenStats {
     'Likely Utility Token': 0,
     'Possible Utility/Hybrid': 0,
     'Likely Meme Token': 0,
+    'Pump.fun Token': 0,
     'Unknown/Speculative': 0,
   };
 

@@ -10,10 +10,11 @@ interface ClassificationBadgeProps {
   size?: 'sm' | 'default';
 }
 
-const variantMap: Record<Classification, 'utility' | 'hybrid' | 'meme' | 'unknown'> = {
+const variantMap: Record<Classification, 'utility' | 'hybrid' | 'meme' | 'pumpfun' | 'unknown'> = {
   'Likely Utility Token': 'utility',
   'Possible Utility/Hybrid': 'hybrid',
   'Likely Meme Token': 'meme',
+  'Pump.fun Token': 'pumpfun',
   'Unknown/Speculative': 'unknown',
 };
 
@@ -21,6 +22,7 @@ const shortLabels: Record<Classification, string> = {
   'Likely Utility Token': 'Utility',
   'Possible Utility/Hybrid': 'Hybrid',
   'Likely Meme Token': 'Meme',
+  'Pump.fun Token': 'Pump.fun',
   'Unknown/Speculative': 'Unknown',
 };
 

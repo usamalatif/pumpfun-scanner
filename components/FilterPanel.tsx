@@ -55,6 +55,7 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="Pump.fun Token">Pump.fun</SelectItem>
             <SelectItem value="Likely Utility Token">Utility</SelectItem>
             <SelectItem value="Possible Utility/Hybrid">Hybrid</SelectItem>
             <SelectItem value="Likely Meme Token">Meme</SelectItem>
@@ -72,6 +73,8 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="market_cap">Market Cap</SelectItem>
+            <SelectItem value="volume24h">Volume 24h</SelectItem>
+            <SelectItem value="price_change">Price Change 24h</SelectItem>
             <SelectItem value="utility_score">Utility Score</SelectItem>
             <SelectItem value="created_timestamp">Created Date</SelectItem>
             <SelectItem value="reply_count">Activity</SelectItem>

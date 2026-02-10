@@ -115,22 +115,34 @@ export function analyzeOpportunities(
     });
   }
 
-  // Compute normalized scores
+  // Compute normalized scores using log scale for better distribution
   if (opportunities.length > 0) {
-    const maxVolPerToken = Math.max(...opportunities.map((o) => o.avgVolume), 1);
-    const maxMomentum = Math.max(
-      ...opportunities.map((o) => Math.max(0, o.avgPriceChange)), 1
-    );
+    // Log-scale normalization so one dominant niche doesn't crush all others to 0
+    const logVolumes = opportunities.map((o) => Math.log10(Math.max(o.avgVolume, 1)));
+    const minLogVol = Math.min(...logVolumes);
+    const maxLogVol = Math.max(...logVolumes);
+    const logVolRange = maxLogVol - minLogVol || 1;
+
+    // For momentum, use rank-based scoring so all positive niches get decent scores
+    const sortedByMomentum = [...opportunities]
+      .filter((o) => o.avgPriceChange > 0)
+      .sort((a, b) => b.avgPriceChange - a.avgPriceChange);
+    const momentumRank = new Map<string, number>();
+    sortedByMomentum.forEach((o, i) => {
+      momentumRank.set(o.niche.id, Math.round(((sortedByMomentum.length - i) / sortedByMomentum.length) * 100));
+    });
+
     const maxSuccessRate = Math.max(...opportunities.map((o) => o.successRate), 1);
 
     for (const opp of opportunities) {
-      // Demand: high volume per token = lots of money chasing this niche
-      opp.demandScore = Math.round((opp.avgVolume / maxVolPerToken) * 100);
+      // Demand: log-scale normalization of avg volume per token
+      const logVol = Math.log10(Math.max(opp.avgVolume, 1));
+      opp.demandScore = Math.round(((logVol - minLogVol) / logVolRange) * 100);
 
-      // Momentum: positive price change = niche is trending up
-      opp.momentumScore = Math.round(
-        (Math.max(0, opp.avgPriceChange) / maxMomentum) * 100
-      );
+      // Momentum: rank-based for positive, 0 for negative
+      opp.momentumScore = opp.avgPriceChange > 0
+        ? (momentumRank.get(opp.niche.id) || 0)
+        : 0;
 
       // Opportunity = weighted combo of demand, momentum, success rate, inverse competition
       const demandWeight = 0.30;

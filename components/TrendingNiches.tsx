@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { NicheStats } from '@/lib/niche-analyzer';
 import { formatMarketCap } from '@/lib/utils';
-import { Flame, TrendingUp, TrendingDown } from 'lucide-react';
+import { Flame, TrendingUp, TrendingDown, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 
 interface TrendingNichesProps {
   niches: NicheStats[];
-  onNicheClick?: (nicheId: string) => void;
 }
 
 function HeatBar({ heat }: { heat: number }) {
@@ -30,8 +32,14 @@ function HeatBar({ heat }: { heat: number }) {
   );
 }
 
-export function TrendingNiches({ niches, onNicheClick }: TrendingNichesProps) {
+export function TrendingNiches({ niches }: TrendingNichesProps) {
+  const [expandedNiche, setExpandedNiche] = useState<string | null>(null);
+
   if (niches.length === 0) return null;
+
+  const toggleNiche = (id: string) => {
+    setExpandedNiche((prev) => (prev === id ? null : id));
+  };
 
   return (
     <Card>
@@ -40,7 +48,7 @@ export function TrendingNiches({ niches, onNicheClick }: TrendingNichesProps) {
           <Flame className="h-4 w-4 text-orange-500" />
           Trending Niches
           <span className="text-xs font-normal text-muted-foreground ml-auto">
-            Sorted by activity heat
+            Click a niche to see tokens
           </span>
         </CardTitle>
       </CardHeader>
@@ -55,51 +63,149 @@ export function TrendingNiches({ niches, onNicheClick }: TrendingNichesProps) {
             <span>Heat</span>
           </div>
 
-          {niches.map((ns) => (
-            <button
-              key={ns.niche.id}
-              onClick={() => onNicheClick?.(ns.niche.id)}
-              className="w-full grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 items-center px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors text-left"
-            >
-              {/* Niche name */}
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base">{ns.niche.emoji}</span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{ns.niche.name}</p>
-                  {ns.pumpFunCount > 0 && (
-                    <p className="text-[10px] text-cyan-400">{ns.pumpFunCount} pump.fun</p>
-                  )}
-                </div>
-              </div>
+          {niches.map((ns) => {
+            const isExpanded = expandedNiche === ns.niche.id;
+            return (
+              <div key={ns.niche.id}>
+                {/* Niche row */}
+                <button
+                  onClick={() => toggleNiche(ns.niche.id)}
+                  className={`w-full grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-2 items-center px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors text-left ${isExpanded ? 'bg-muted/50' : ''}`}
+                >
+                  {/* Niche name */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base">{ns.niche.emoji}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{ns.niche.name}</p>
+                      {ns.pumpFunCount > 0 && (
+                        <p className="text-[10px] text-cyan-400">{ns.pumpFunCount} pump.fun</p>
+                      )}
+                    </div>
+                    {isExpanded ? (
+                      <ChevronUp className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    )}
+                  </div>
 
-              {/* Token count */}
-              <div className="text-right">
-                <span className="text-sm font-semibold">{ns.tokenCount}</span>
-              </div>
+                  {/* Token count */}
+                  <div className="text-right">
+                    <span className="text-sm font-semibold">{ns.tokenCount}</span>
+                  </div>
 
-              {/* Volume */}
-              <div className="text-right">
-                <span className="text-xs font-mono">
-                  {ns.totalVolume > 0 ? formatMarketCap(ns.totalVolume) : '-'}
-                </span>
-              </div>
+                  {/* Volume */}
+                  <div className="text-right">
+                    <span className="text-xs font-mono">
+                      {ns.totalVolume > 0 ? formatMarketCap(ns.totalVolume) : '-'}
+                    </span>
+                  </div>
 
-              {/* Avg Price Change */}
-              <div className="text-right">
-                {ns.avgPriceChange !== 0 ? (
-                  <span className={`text-xs font-medium flex items-center gap-0.5 justify-end ${ns.avgPriceChange >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {ns.avgPriceChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {ns.avgPriceChange >= 0 ? '+' : ''}{ns.avgPriceChange.toFixed(1)}%
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">-</span>
+                  {/* Avg Price Change */}
+                  <div className="text-right">
+                    {ns.avgPriceChange !== 0 ? (
+                      <span className={`text-xs font-medium flex items-center gap-0.5 justify-end ${ns.avgPriceChange >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {ns.avgPriceChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                        {ns.avgPriceChange >= 0 ? '+' : ''}{ns.avgPriceChange.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </div>
+
+                  {/* Heat */}
+                  <HeatBar heat={ns.heat} />
+                </button>
+
+                {/* Expanded token list */}
+                {isExpanded && (
+                  <div className="mx-3 mb-2 mt-1 rounded-lg border border-border/50 bg-muted/20 overflow-hidden">
+                    {/* Token list header */}
+                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px] gap-2 px-4 py-2 text-[10px] text-muted-foreground uppercase tracking-wider font-medium border-b border-border/30">
+                      <span>Token</span>
+                      <span className="text-right">Market Cap</span>
+                      <span className="text-right">Volume 24h</span>
+                      <span className="text-right">24h Change</span>
+                      <span className="text-right">Source</span>
+                    </div>
+
+                    {ns.topTokens.map((token) => (
+                      <Link key={token.mint} href={`/tokens/${token.mint}`}>
+                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_80px] gap-2 items-center px-4 py-2.5 hover:bg-muted/50 transition-colors cursor-pointer border-b border-border/20 last:border-b-0">
+                          {/* Token info */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            {token.image_uri ? (
+                              <img
+                                src={token.image_uri}
+                                alt={token.name}
+                                className="h-7 w-7 rounded-full object-cover bg-muted flex-shrink-0"
+                                loading="lazy"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '';
+                                  (e.target as HTMLImageElement).className = 'h-7 w-7 rounded-full bg-muted flex-shrink-0';
+                                }}
+                              />
+                            ) : (
+                              <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                                {token.symbol?.slice(0, 2)}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1">
+                                <p className="text-sm font-medium truncate">{token.name}</p>
+                                <ExternalLink className="h-3 w-3 text-muted-foreground/50 flex-shrink-0" />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">${token.symbol}</p>
+                            </div>
+                          </div>
+
+                          {/* Market cap */}
+                          <div className="text-right">
+                            <span className="text-xs font-mono">{formatMarketCap(token.usd_market_cap)}</span>
+                          </div>
+
+                          {/* Volume */}
+                          <div className="text-right">
+                            <span className="text-xs font-mono">
+                              {token.volume24hUSD ? formatMarketCap(token.volume24hUSD) : '-'}
+                            </span>
+                          </div>
+
+                          {/* Price change */}
+                          <div className="text-right">
+                            {token.price24hChangePercent != null ? (
+                              <span className={`text-xs font-medium flex items-center gap-0.5 justify-end ${token.price24hChangePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {token.price24hChangePercent >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                {token.price24hChangePercent >= 0 ? '+' : ''}{token.price24hChangePercent.toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </div>
+
+                          {/* Source badge */}
+                          <div className="text-right">
+                            {token.isPumpFun ? (
+                              <Badge variant="pumpfun" className="text-[9px] px-1.5 py-0">Pump.fun</Badge>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">Solana</span>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+
+                    {ns.topTokens.length < ns.tokenCount && (
+                      <div className="px-4 py-2 text-center">
+                        <span className="text-[10px] text-muted-foreground">
+                          Showing top {ns.topTokens.length} of {ns.tokenCount} tokens (by volume)
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-
-              {/* Heat */}
-              <HeatBar heat={ns.heat} />
-            </button>
-          ))}
+            );
+          })}
         </div>
 
         {/* Niche insights */}

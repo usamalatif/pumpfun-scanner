@@ -66,15 +66,6 @@ export default function DashboardPage() {
 
   const classificationFilter = filters.classification;
 
-  const handleNicheClick = (nicheId: string) => {
-    // Search for the niche name to filter tokens
-    const niche = niches.find((n) => n.niche.id === nicheId);
-    if (niche && niche.topTokens.length > 0) {
-      // Use search to filter by niche keywords
-      updateFilters({ search: niche.niche.name.split(' ')[0], classification: 'all' });
-    }
-  };
-
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Page header */}
@@ -205,7 +196,7 @@ export default function DashboardPage() {
       {/* Trending Niches + Market Intelligence */}
       {!isLoading && allTokens.length > 0 && classificationFilter === 'all' && !filters.search && (
         <>
-          <TrendingNiches niches={niches} onNicheClick={handleNicheClick} />
+          <TrendingNiches niches={niches} />
           <MarketIntelligence
             topGainers={topGainers}
             topLosers={topLosers}

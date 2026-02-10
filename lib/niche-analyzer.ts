@@ -142,10 +142,9 @@ export function analyzeNiches(tokens: AnalyzedToken[]): NicheStats[] {
       : 0;
     const pumpFunCount = nicheTokens.filter((t) => t.isPumpFun).length;
 
-    // Sort by volume for top tokens
+    // Sort all niche tokens by volume
     const topTokens = [...nicheTokens]
-      .sort((a, b) => (b.volume24hUSD || 0) - (a.volume24hUSD || 0))
-      .slice(0, 5);
+      .sort((a, b) => (b.volume24hUSD || 0) - (a.volume24hUSD || 0));
 
     if (totalVolume > maxVolume) maxVolume = totalVolume;
 

@@ -194,13 +194,11 @@ export function TrendingNiches({ niches }: TrendingNichesProps) {
                       </Link>
                     ))}
 
-                    {ns.topTokens.length < ns.tokenCount && (
-                      <div className="px-4 py-2 text-center">
-                        <span className="text-[10px] text-muted-foreground">
-                          Showing top {ns.topTokens.length} of {ns.tokenCount} tokens (by volume)
-                        </span>
-                      </div>
-                    )}
+                    <div className="px-4 py-2 text-center">
+                      <span className="text-[10px] text-muted-foreground">
+                        {ns.topTokens.length} tokens sorted by 24h volume
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

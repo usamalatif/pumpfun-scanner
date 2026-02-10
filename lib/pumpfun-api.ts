@@ -347,7 +347,7 @@ async function fetchTokenFromGeckoTerminal(
 // ============================================================================
 
 export async function fetchTrendingTokens(
-  limit: number = 50,
+  limit: number = 100,
   offset: number = 0,
   sort: string = 'market_cap',
   order: string = 'DESC',

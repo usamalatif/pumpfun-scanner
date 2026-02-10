@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, BarChart3, List, Settings, Sun, Moon, Menu, X } from 'lucide-react';
+import { Activity, BarChart3, List, Settings, Sun, Moon, Menu, X, Target } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { useState } from 'react';
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Activity },
   { href: '/tokens', label: 'Tokens', icon: List },
+  { href: '/opportunities', label: 'Opportunities', icon: Target },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

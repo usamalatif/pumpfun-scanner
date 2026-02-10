@@ -97,25 +97,53 @@ function mapBirdeyeTrending(t: BirdeyeTrending): PumpFunToken {
 async function fetchTrendingFromBirdeye(
   limit: number
 ): Promise<PumpFunToken[]> {
-  // Birdeye max limit is 20 per request, so we paginate
+  // Birdeye trending API caps at ~100 per sort strategy.
+  // To get more tokens, we fetch with multiple sort strategies and deduplicate.
   const pageSize = 20;
-  const pages = Math.ceil(limit / pageSize);
+  const pagesPerStrategy = Math.ceil(Math.min(limit, 100) / pageSize); // max 5 pages per strategy
 
-  const pagePromises = Array.from({ length: pages }, (_, i) =>
-    fetch(
-      `${BIRDEYE_API}/defi/token_trending?sort_by=rank&sort_type=asc&offset=${i * pageSize}&limit=${pageSize}`,
-      { headers: birdeyeHeaders(), cache: 'no-store' }
-    )
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null)
-  );
+  // Different sort strategies to get diverse token sets
+  const strategies = [
+    { sort_by: 'rank', sort_type: 'asc' },
+    { sort_by: 'volume24hUSD', sort_type: 'desc' },
+    { sort_by: 'price24hChangePercent', sort_type: 'desc' },
+  ];
 
-  const results = await Promise.all(pagePromises);
+  // Only use as many strategies as needed
+  const neededStrategies = limit <= 100 ? 1 : limit <= 200 ? 2 : 3;
+  const activeStrategies = strategies.slice(0, neededStrategies);
+
+  const allPromises: Promise<Response | null>[] = [];
+  for (const strategy of activeStrategies) {
+    for (let i = 0; i < pagesPerStrategy; i++) {
+      allPromises.push(
+        fetch(
+          `${BIRDEYE_API}/defi/token_trending?sort_by=${strategy.sort_by}&sort_type=${strategy.sort_type}&offset=${i * pageSize}&limit=${pageSize}`,
+          { headers: birdeyeHeaders(), cache: 'no-store' }
+        ).catch(() => null)
+      );
+    }
+  }
+
+  const responses = await Promise.all(allPromises);
+  const seen = new Set<string>();
   const allTokens: PumpFunToken[] = [];
 
-  for (const json of results) {
-    if (!json?.success || !json.data?.tokens) continue;
-    allTokens.push(...json.data.tokens.map(mapBirdeyeTrending));
+  for (const res of responses) {
+    if (!res || !('ok' in res) || !res.ok) continue;
+    try {
+      const json = await res.json();
+      if (!json?.success || !json.data?.tokens) continue;
+      for (const t of json.data.tokens) {
+        const mapped = mapBirdeyeTrending(t);
+        if (!seen.has(mapped.mint)) {
+          seen.add(mapped.mint);
+          allTokens.push(mapped);
+        }
+      }
+    } catch {
+      continue;
+    }
   }
 
   if (allTokens.length === 0) {
@@ -421,50 +449,34 @@ async function fetchPumpFunFromGeckoTerminal(
 export async function fetchTrendingTokens(
   limit: number = 200
 ): Promise<PumpFunToken[]> {
-  let birdeyeTokens: PumpFunToken[] = [];
-  let geckoTokens: PumpFunToken[] = [];
-
-  // Source 1: Birdeye API (rich data, all Solana trending tokens)
+  // Primary: Birdeye API with multiple sort strategies for 300+ tokens
   if (BIRDEYE_KEY) {
     try {
-      birdeyeTokens = await fetchTrendingFromBirdeye(limit);
-      console.log(
-        `Loaded ${birdeyeTokens.length} trending tokens from Birdeye ` +
-          `(${birdeyeTokens.filter((t) => t.isPumpFun).length} pump.fun)`
-      );
+      const tokens = await fetchTrendingFromBirdeye(limit);
+      if (tokens.length > 0) {
+        console.log(
+          `Loaded ${tokens.length} trending tokens from Birdeye ` +
+            `(${tokens.filter((t) => t.isPumpFun).length} pump.fun)`
+        );
+        return tokens;
+      }
     } catch (e) {
       console.warn('Birdeye API failed:', e);
     }
   }
 
-  // Source 2: GeckoTerminal pump.fun pools (supplement or fallback)
-  // Fetch if we need more tokens or Birdeye returned nothing
-  if (birdeyeTokens.length < limit) {
-    try {
-      const remaining = limit - birdeyeTokens.length;
-      geckoTokens = await fetchPumpFunFromGeckoTerminal(remaining);
-      console.log(`Loaded ${geckoTokens.length} pump.fun tokens from GeckoTerminal`);
-    } catch (e) {
-      console.warn('GeckoTerminal failed:', e);
+  // Fallback: GeckoTerminal pump.fun pools (no API key needed)
+  try {
+    const tokens = await fetchPumpFunFromGeckoTerminal(limit);
+    if (tokens.length > 0) {
+      console.log(`Loaded ${tokens.length} pump.fun tokens from GeckoTerminal`);
+      return tokens;
     }
+  } catch (e) {
+    console.warn('GeckoTerminal fallback failed:', e);
   }
 
-  if (birdeyeTokens.length === 0 && geckoTokens.length === 0) {
-    return [];
-  }
-
-  // Merge and deduplicate by mint address (Birdeye data takes priority)
-  const seen = new Set(birdeyeTokens.map((t) => t.mint));
-  const merged = [...birdeyeTokens];
-  for (const token of geckoTokens) {
-    if (!seen.has(token.mint)) {
-      seen.add(token.mint);
-      merged.push(token);
-    }
-  }
-
-  console.log(`Total unique tokens: ${merged.length} (Birdeye: ${birdeyeTokens.length}, GeckoTerminal: ${merged.length - birdeyeTokens.length} new)`);
-  return merged.slice(0, limit);
+  return [];
 }
 
 export async function fetchTokenByMint(mint: string): Promise<PumpFunToken> {

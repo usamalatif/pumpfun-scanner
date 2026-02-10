@@ -421,34 +421,50 @@ async function fetchPumpFunFromGeckoTerminal(
 export async function fetchTrendingTokens(
   limit: number = 200
 ): Promise<PumpFunToken[]> {
-  // Strategy 1: Birdeye API (rich data, all Solana trending tokens)
+  let birdeyeTokens: PumpFunToken[] = [];
+  let geckoTokens: PumpFunToken[] = [];
+
+  // Source 1: Birdeye API (rich data, all Solana trending tokens)
   if (BIRDEYE_KEY) {
     try {
-      const tokens = await fetchTrendingFromBirdeye(limit);
-      if (tokens.length > 0) {
-        console.log(
-          `Loaded ${tokens.length} trending tokens from Birdeye ` +
-            `(${tokens.filter((t) => t.isPumpFun).length} pump.fun)`
-        );
-        return tokens;
-      }
+      birdeyeTokens = await fetchTrendingFromBirdeye(limit);
+      console.log(
+        `Loaded ${birdeyeTokens.length} trending tokens from Birdeye ` +
+          `(${birdeyeTokens.filter((t) => t.isPumpFun).length} pump.fun)`
+      );
     } catch (e) {
       console.warn('Birdeye API failed:', e);
     }
   }
 
-  // Strategy 2: GeckoTerminal pump.fun pools (free fallback)
-  try {
-    const tokens = await fetchPumpFunFromGeckoTerminal(limit);
-    if (tokens.length > 0) {
-      console.log(`Loaded ${tokens.length} pump.fun tokens from GeckoTerminal`);
-      return tokens;
+  // Source 2: GeckoTerminal pump.fun pools (supplement or fallback)
+  // Fetch if we need more tokens or Birdeye returned nothing
+  if (birdeyeTokens.length < limit) {
+    try {
+      const remaining = limit - birdeyeTokens.length;
+      geckoTokens = await fetchPumpFunFromGeckoTerminal(remaining);
+      console.log(`Loaded ${geckoTokens.length} pump.fun tokens from GeckoTerminal`);
+    } catch (e) {
+      console.warn('GeckoTerminal failed:', e);
     }
-  } catch (e) {
-    console.warn('GeckoTerminal fallback failed:', e);
   }
 
-  return [];
+  if (birdeyeTokens.length === 0 && geckoTokens.length === 0) {
+    return [];
+  }
+
+  // Merge and deduplicate by mint address (Birdeye data takes priority)
+  const seen = new Set(birdeyeTokens.map((t) => t.mint));
+  const merged = [...birdeyeTokens];
+  for (const token of geckoTokens) {
+    if (!seen.has(token.mint)) {
+      seen.add(token.mint);
+      merged.push(token);
+    }
+  }
+
+  console.log(`Total unique tokens: ${merged.length} (Birdeye: ${birdeyeTokens.length}, GeckoTerminal: ${merged.length - birdeyeTokens.length} new)`);
+  return merged.slice(0, limit);
 }
 
 export async function fetchTokenByMint(mint: string): Promise<PumpFunToken> {

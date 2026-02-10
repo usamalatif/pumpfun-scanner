@@ -210,6 +210,7 @@ function computeAnalytics(tokens: AnalyzedToken[]) {
     'Likely Utility Token': '#10B981',
     'Possible Utility/Hybrid': '#F59E0B',
     'Likely Meme Token': '#A855F7',
+    'Pump.fun Token': '#22D3EE',
     'Unknown/Speculative': '#6B7280',
   };
 

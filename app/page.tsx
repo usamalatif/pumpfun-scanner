@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Activity,
-  TrendingUp,
   DollarSign,
   RefreshCw,
   LayoutGrid,
@@ -15,18 +14,20 @@ import {
   Theater,
   HelpCircle,
   Rocket,
+  BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { StatsCard } from '@/components/StatsCard';
 import { TokenCard } from '@/components/TokenCard';
 import { TokenTable } from '@/components/TokenTable';
 import { TokenCardSkeleton } from '@/components/TokenCardSkeleton';
-import { ClassificationBadge } from '@/components/ClassificationBadge';
-import { UtilityScoreBadge } from '@/components/UtilityScoreBadge';
+import { TrendingNiches } from '@/components/TrendingNiches';
+import { MarketIntelligence } from '@/components/MarketIntelligence';
 import { useTokens } from '@/hooks/useTokens';
 import { useSettings } from '@/hooks/useSettings';
 import { formatMarketCap, formatTimeAgo } from '@/lib/utils';
+import { analyzeNiches, getTopGainers, getTopLosers, getTopVolume, getPumpFunLeaders } from '@/lib/niche-analyzer';
 
 export default function DashboardPage() {
   const { settings } = useSettings();
@@ -51,16 +52,28 @@ export default function DashboardPage() {
     (t) => t.analysis.classification === 'Likely Meme Token'
   ).length;
   const pumpFunCount = allTokens.filter(
-    (t) => t.analysis.classification === 'Pump.fun Token'
+    (t) => t.isPumpFun
   ).length;
   const totalMarketCap = allTokens.reduce((sum, t) => sum + (t.usd_market_cap || 0), 0);
+  const totalVolume = allTokens.reduce((sum, t) => sum + (t.volume24hUSD || 0), 0);
 
-  // Top utility tokens
-  const topUtility = [...allTokens]
-    .sort((a, b) => b.analysis.utilityScore - a.analysis.utilityScore)
-    .slice(0, 3);
+  // Niche analysis
+  const niches = useMemo(() => analyzeNiches(allTokens), [allTokens]);
+  const topGainers = useMemo(() => getTopGainers(allTokens), [allTokens]);
+  const topLosers = useMemo(() => getTopLosers(allTokens), [allTokens]);
+  const topVolume = useMemo(() => getTopVolume(allTokens), [allTokens]);
+  const pumpFunLeaders = useMemo(() => getPumpFunLeaders(allTokens), [allTokens]);
 
   const classificationFilter = filters.classification;
+
+  const handleNicheClick = (nicheId: string) => {
+    // Search for the niche name to filter tokens
+    const niche = niches.find((n) => n.niche.id === nicheId);
+    if (niche && niche.topTokens.length > 0) {
+      // Use search to filter by niche keywords
+      updateFilters({ search: niche.niche.name.split(' ')[0], classification: 'all' });
+    }
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
@@ -69,7 +82,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time pump.fun token analytics
+            Real-time Solana token analytics &middot; Pump.fun + ecosystem
             {dataUpdatedAt > 0 && (
               <span> &middot; Updated {formatTimeAgo(dataUpdatedAt)}</span>
             )}
@@ -111,18 +124,18 @@ export default function DashboardPage() {
           color="bg-gradient-to-br from-blue-500 to-cyan-500"
         />
         <StatsCard
-          title="Utility Tokens"
-          value={utilityCount}
-          description={`${allTokens.length > 0 ? ((utilityCount / allTokens.length) * 100).toFixed(1) : 0}% of total`}
-          icon={Target}
-          color="bg-gradient-to-br from-emerald-500 to-green-500"
-        />
-        <StatsCard
           title="Pump.fun Tokens"
           value={pumpFunCount}
           description={`${allTokens.length > 0 ? ((pumpFunCount / allTokens.length) * 100).toFixed(1) : 0}% of total`}
           icon={Rocket}
           color="bg-gradient-to-br from-cyan-500 to-blue-500"
+        />
+        <StatsCard
+          title="24h Volume"
+          value={formatMarketCap(totalVolume)}
+          description="Combined trading volume"
+          icon={BarChart3}
+          color="bg-gradient-to-br from-purple-500 to-pink-500"
         />
         <StatsCard
           title="Total Market Cap"
@@ -138,32 +151,32 @@ export default function DashboardPage() {
         <Button
           variant={classificationFilter === 'all' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => updateFilters({ classification: 'all' })}
+          onClick={() => updateFilters({ classification: 'all', search: '' })}
         >
           All ({allTokens.length})
         </Button>
         <Button
+          variant={classificationFilter === 'Pump.fun Token' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => updateFilters({ classification: 'Pump.fun Token', search: '' })}
+          className="border-cyan-500/30"
+        >
+          <Rocket className="h-3.5 w-3.5 mr-1" />
+          Pump.fun ({allTokens.filter((t) => t.analysis.classification === 'Pump.fun Token').length})
+        </Button>
+        <Button
           variant={classificationFilter === 'Likely Utility Token' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => updateFilters({ classification: 'Likely Utility Token' })}
+          onClick={() => updateFilters({ classification: 'Likely Utility Token', search: '' })}
           className="border-emerald-500/30"
         >
           <Target className="h-3.5 w-3.5 mr-1" />
           Utility ({utilityCount})
         </Button>
         <Button
-          variant={classificationFilter === 'Pump.fun Token' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => updateFilters({ classification: 'Pump.fun Token' })}
-          className="border-cyan-500/30"
-        >
-          <Rocket className="h-3.5 w-3.5 mr-1" />
-          Pump.fun ({pumpFunCount})
-        </Button>
-        <Button
           variant={classificationFilter === 'Likely Meme Token' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => updateFilters({ classification: 'Likely Meme Token' })}
+          onClick={() => updateFilters({ classification: 'Likely Meme Token', search: '' })}
           className="border-purple-500/30"
         >
           <Theater className="h-3.5 w-3.5 mr-1" />
@@ -172,7 +185,7 @@ export default function DashboardPage() {
         <Button
           variant={classificationFilter === 'Possible Utility/Hybrid' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => updateFilters({ classification: 'Possible Utility/Hybrid' })}
+          onClick={() => updateFilters({ classification: 'Possible Utility/Hybrid', search: '' })}
           className="border-amber-500/30"
         >
           <Shuffle className="h-3.5 w-3.5 mr-1" />
@@ -181,7 +194,7 @@ export default function DashboardPage() {
         <Button
           variant={classificationFilter === 'Unknown/Speculative' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => updateFilters({ classification: 'Unknown/Speculative' })}
+          onClick={() => updateFilters({ classification: 'Unknown/Speculative', search: '' })}
           className="border-gray-500/30"
         >
           <HelpCircle className="h-3.5 w-3.5 mr-1" />
@@ -189,61 +202,17 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Featured utility tokens */}
-      {topUtility.length > 0 && classificationFilter === 'all' && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-emerald-500" />
-                Top Utility Tokens
-              </CardTitle>
-              <Link href="/tokens">
-                <Button variant="ghost" size="sm" className="gap-1">
-                  View All <ArrowRight className="h-3 w-3" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {topUtility.map((token) => (
-                <Link key={token.mint} href={`/tokens/${token.mint}`}>
-                  <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all cursor-pointer">
-                    {token.image_uri ? (
-                      <img
-                        src={token.image_uri}
-                        alt={token.name}
-                        className="h-10 w-10 rounded-full object-cover bg-muted"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
-                        {token.symbol?.slice(0, 2)}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">{token.name}</p>
-                        <ClassificationBadge
-                          classification={token.analysis.classification}
-                          size="sm"
-                          showEmoji={false}
-                        />
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          {formatMarketCap(token.usd_market_cap)}
-                        </span>
-                        <UtilityScoreBadge score={token.analysis.utilityScore} size="sm" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Trending Niches + Market Intelligence */}
+      {!isLoading && allTokens.length > 0 && classificationFilter === 'all' && !filters.search && (
+        <>
+          <TrendingNiches niches={niches} onNicheClick={handleNicheClick} />
+          <MarketIntelligence
+            topGainers={topGainers}
+            topLosers={topLosers}
+            topVolume={topVolume}
+            pumpFunLeaders={pumpFunLeaders}
+          />
+        </>
       )}
 
       {/* Token feed */}
@@ -261,7 +230,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground mb-4">
               Try adjusting your filters or refresh the data
             </p>
-            <Button variant="outline" onClick={() => updateFilters({ classification: 'all' })}>
+            <Button variant="outline" onClick={() => updateFilters({ classification: 'all', search: '' })}>
               Clear Filters
             </Button>
           </CardContent>

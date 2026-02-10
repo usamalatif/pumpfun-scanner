@@ -11,6 +11,13 @@ import {
   Clock,
   Copy,
   CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Droplets,
+  Users,
+  ShoppingCart,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -75,6 +82,16 @@ export default function TokenDetailPage() {
     );
   }
 
+  const buySellRatio = token.buy24h && token.sell24h
+    ? token.buy24h / (token.buy24h + token.sell24h)
+    : null;
+  const buyVolumeRatio = token.vBuy24hUSD && token.vSell24hUSD
+    ? token.vBuy24hUSD / (token.vBuy24hUSD + token.vSell24hUSD)
+    : null;
+  const liquidityRatio = token.liquidity && token.usd_market_cap
+    ? (token.liquidity / token.usd_market_cap) * 100
+    : null;
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       {/* Back button */}
@@ -108,6 +125,7 @@ export default function TokenDetailPage() {
                     <Badge variant="secondary" className="font-mono">
                       ${token.symbol}
                     </Badge>
+                    {token.isPumpFun && <Badge variant="pumpfun">Pump.fun</Badge>}
                     <ClassificationBadge classification={token.analysis.classification} />
                   </div>
 
@@ -124,15 +142,29 @@ export default function TokenDetailPage() {
                     </Button>
                   </div>
 
-                  <div className="flex items-center gap-4 mt-3">
+                  {/* Price + key metrics */}
+                  <div className="flex items-center gap-4 mt-3 flex-wrap">
+                    {token.price != null && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Price</p>
+                        <p className="text-lg font-bold">
+                          ${token.price < 0.01 ? token.price.toExponential(2) : token.price.toFixed(4)}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-muted-foreground">Market Cap</p>
                       <p className="text-lg font-bold">{formatMarketCap(token.usd_market_cap)}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Replies</p>
-                      <p className="text-lg font-bold">{token.reply_count}</p>
-                    </div>
+                    {token.price24hChangePercent != null && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">24h Change</p>
+                        <p className={`text-lg font-bold flex items-center gap-1 ${token.price24hChangePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                          {token.price24hChangePercent >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                          {token.price24hChangePercent >= 0 ? '+' : ''}{token.price24hChangePercent.toFixed(2)}%
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-muted-foreground">Created</p>
                       <p className="text-sm font-medium flex items-center gap-1">
@@ -145,6 +177,95 @@ export default function TokenDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Market Data Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <MetricCard
+              icon={BarChart3}
+              iconColor="text-blue-500"
+              label="24h Volume"
+              value={token.volume24hUSD ? formatMarketCap(token.volume24hUSD) : 'N/A'}
+              sub={token.volume24hChangePercent != null
+                ? `${token.volume24hChangePercent >= 0 ? '+' : ''}${token.volume24hChangePercent.toFixed(1)}% vol change`
+                : undefined}
+              subColor={token.volume24hChangePercent != null && token.volume24hChangePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}
+            />
+            <MetricCard
+              icon={Droplets}
+              iconColor="text-cyan-500"
+              label="Liquidity"
+              value={token.liquidity ? formatMarketCap(token.liquidity) : 'N/A'}
+              sub={liquidityRatio != null ? `${liquidityRatio.toFixed(1)}% of MCap` : undefined}
+              subColor={liquidityRatio != null && liquidityRatio >= 10 ? 'text-emerald-500' : liquidityRatio != null && liquidityRatio >= 5 ? 'text-amber-500' : 'text-red-500'}
+            />
+            <MetricCard
+              icon={Users}
+              iconColor="text-purple-500"
+              label="Holders"
+              value={token.holder ? token.holder.toLocaleString() : 'N/A'}
+              sub={token.uniqueWallet24h ? `${token.uniqueWallet24h.toLocaleString()} unique 24h` : undefined}
+            />
+            <MetricCard
+              icon={ArrowUpDown}
+              iconColor="text-amber-500"
+              label="24h Trades"
+              value={token.trade24h ? token.trade24h.toLocaleString() : 'N/A'}
+              sub={token.reply_count ? `${token.reply_count} replies` : undefined}
+            />
+          </div>
+
+          {/* Buy/Sell Pressure */}
+          {(token.buy24h != null || token.vBuy24hUSD != null) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-emerald-500" />
+                  Buy / Sell Pressure (24h)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {token.buy24h != null && token.sell24h != null && (
+                  <div>
+                    <div className="flex justify-between text-xs mb-1.5">
+                      <span className="text-emerald-500 font-medium">
+                        {token.buy24h.toLocaleString()} buys ({buySellRatio != null ? (buySellRatio * 100).toFixed(1) : 0}%)
+                      </span>
+                      <span className="text-red-500 font-medium">
+                        {token.sell24h.toLocaleString()} sells ({buySellRatio != null ? ((1 - buySellRatio) * 100).toFixed(1) : 0}%)
+                      </span>
+                    </div>
+                    <div className="h-3 bg-red-500 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-l-full transition-all"
+                        style={{ width: `${(buySellRatio || 0.5) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Trade Count Pressure</p>
+                  </div>
+                )}
+
+                {token.vBuy24hUSD != null && token.vSell24hUSD != null && (
+                  <div>
+                    <div className="flex justify-between text-xs mb-1.5">
+                      <span className="text-emerald-500 font-medium">
+                        {formatMarketCap(token.vBuy24hUSD)} buy vol ({buyVolumeRatio != null ? (buyVolumeRatio * 100).toFixed(1) : 0}%)
+                      </span>
+                      <span className="text-red-500 font-medium">
+                        {formatMarketCap(token.vSell24hUSD)} sell vol ({buyVolumeRatio != null ? ((1 - buyVolumeRatio) * 100).toFixed(1) : 0}%)
+                      </span>
+                    </div>
+                    <div className="h-3 bg-red-500 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-l-full transition-all"
+                        style={{ width: `${(buyVolumeRatio || 0.5) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Volume Pressure (USD)</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Description */}
           <Card>
@@ -239,6 +360,7 @@ export default function TokenDetailPage() {
             <CardContent className="space-y-3 text-sm">
               <InfoRow label="Mint" value={truncateAddress(token.mint, 6)} />
               <InfoRow label="Creator" value={truncateAddress(token.creator, 6)} />
+              {token.rank != null && <InfoRow label="Birdeye Rank" value={`#${token.rank}`} />}
               <InfoRow label="Complete" value={token.complete ? 'Yes' : 'No'} />
               <InfoRow
                 label="Raydium Pool"
@@ -248,17 +370,39 @@ export default function TokenDetailPage() {
             </CardContent>
           </Card>
 
-          {/* View on pump.fun */}
-          <a
-            href={`https://pump.fun/${token.mint}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button className="w-full gap-2" variant="outline">
-              View on pump.fun
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </a>
+          {/* External Links */}
+          <div className="space-y-2">
+            <a
+              href={`https://pump.fun/${token.mint}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="w-full gap-2" variant="outline">
+                View on Pump.fun
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </a>
+            <a
+              href={`https://birdeye.so/token/${token.mint}?chain=solana`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="w-full gap-2 mt-2" variant="outline">
+                View on Birdeye
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </a>
+            <a
+              href={`https://dexscreener.com/solana/${token.mint}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="w-full gap-2 mt-2" variant="outline">
+                View on DexScreener
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -271,5 +415,34 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="font-mono text-xs">{value}</span>
     </div>
+  );
+}
+
+function MetricCard({
+  icon: Icon,
+  iconColor,
+  label,
+  value,
+  sub,
+  subColor,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  iconColor: string;
+  label: string;
+  value: string;
+  sub?: string;
+  subColor?: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-1.5 mb-1">
+          <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+        </div>
+        <p className="text-sm font-bold">{value}</p>
+        {sub && <p className={`text-[10px] mt-0.5 ${subColor || 'text-muted-foreground'}`}>{sub}</p>}
+      </CardContent>
+    </Card>
   );
 }

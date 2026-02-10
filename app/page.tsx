@@ -24,10 +24,19 @@ import { TokenTable } from '@/components/TokenTable';
 import { TokenCardSkeleton } from '@/components/TokenCardSkeleton';
 import { TrendingNiches } from '@/components/TrendingNiches';
 import { MarketIntelligence } from '@/components/MarketIntelligence';
+import { LaunchInsights } from '@/components/LaunchInsights';
+import { NewLaunches } from '@/components/NewLaunches';
 import { useTokens } from '@/hooks/useTokens';
 import { useSettings } from '@/hooks/useSettings';
 import { formatMarketCap, formatTimeAgo } from '@/lib/utils';
 import { analyzeNiches, getTopGainers, getTopLosers, getTopVolume, getPumpFunLeaders } from '@/lib/niche-analyzer';
+import {
+  analyzeNamePatterns,
+  computeNicheSuccessRates,
+  analyzeLiquidity,
+  analyzeSocialCorrelation,
+  computeMarketOverview,
+} from '@/lib/launch-intelligence';
 
 export default function DashboardPage() {
   const { settings } = useSettings();
@@ -63,6 +72,17 @@ export default function DashboardPage() {
   const topLosers = useMemo(() => getTopLosers(allTokens), [allTokens]);
   const topVolume = useMemo(() => getTopVolume(allTokens), [allTokens]);
   const pumpFunLeaders = useMemo(() => getPumpFunLeaders(allTokens), [allTokens]);
+
+  // Launch intelligence
+  const namePatterns = useMemo(() => analyzeNamePatterns(allTokens), [allTokens]);
+  const successRates = useMemo(() => computeNicheSuccessRates(niches), [niches]);
+  const liquidityInsights = useMemo(() => analyzeLiquidity(niches), [niches]);
+  const socialCorrelations = useMemo(() => analyzeSocialCorrelation(allTokens), [allTokens]);
+  const marketOverview = useMemo(() => computeMarketOverview(allTokens), [allTokens]);
+  const newestTokens = useMemo(
+    () => [...allTokens].sort((a, b) => b.created_timestamp - a.created_timestamp).slice(0, 10),
+    [allTokens]
+  );
 
   const classificationFilter = filters.classification;
 
@@ -202,6 +222,14 @@ export default function DashboardPage() {
             topLosers={topLosers}
             topVolume={topVolume}
             pumpFunLeaders={pumpFunLeaders}
+          />
+          <NewLaunches tokens={newestTokens} />
+          <LaunchInsights
+            overview={marketOverview}
+            namePatterns={namePatterns}
+            successRates={successRates}
+            liquidityInsights={liquidityInsights}
+            socialCorrelations={socialCorrelations}
           />
         </>
       )}

@@ -97,18 +97,32 @@ function mapBirdeyeTrending(t: BirdeyeTrending): PumpFunToken {
 async function fetchTrendingFromBirdeye(
   limit: number
 ): Promise<PumpFunToken[]> {
-  const res = await fetch(
-    `${BIRDEYE_API}/defi/token_trending?sort_by=rank&sort_type=asc&offset=0&limit=${limit}`,
-    { headers: birdeyeHeaders(), cache: 'no-store' }
-  );
-  if (!res.ok) throw new Error(`Birdeye trending: ${res.status}`);
+  // Birdeye max limit is 20 per request, so we paginate
+  const pageSize = 20;
+  const pages = Math.ceil(limit / pageSize);
 
-  const json = await res.json();
-  if (!json.success || !json.data?.tokens) {
-    throw new Error('Birdeye trending: invalid response');
+  const pagePromises = Array.from({ length: pages }, (_, i) =>
+    fetch(
+      `${BIRDEYE_API}/defi/token_trending?sort_by=rank&sort_type=asc&offset=${i * pageSize}&limit=${pageSize}`,
+      { headers: birdeyeHeaders(), cache: 'no-store' }
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+  );
+
+  const results = await Promise.all(pagePromises);
+  const allTokens: PumpFunToken[] = [];
+
+  for (const json of results) {
+    if (!json?.success || !json.data?.tokens) continue;
+    allTokens.push(...json.data.tokens.map(mapBirdeyeTrending));
   }
 
-  return json.data.tokens.map(mapBirdeyeTrending);
+  if (allTokens.length === 0) {
+    throw new Error('Birdeye trending: no tokens returned');
+  }
+
+  return allTokens.slice(0, limit);
 }
 
 // -- Birdeye token overview (detail page) ------------------------------------

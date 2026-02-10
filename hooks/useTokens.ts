@@ -17,7 +17,7 @@ const DEFAULT_FILTERS: TokenFilters = {
   sortOrder: 'desc',
 };
 
-async function fetchTokens(limit: number = 100): Promise<AnalyzedToken[]> {
+async function fetchTokens(limit: number = 200): Promise<AnalyzedToken[]> {
   const res = await fetch(`/api/tokens/trending?limit=${limit}`);
   if (!res.ok) throw new Error('Failed to fetch tokens');
   const json = await res.json();
@@ -25,7 +25,7 @@ async function fetchTokens(limit: number = 100): Promise<AnalyzedToken[]> {
 }
 
 export function useTokens(
-  limit: number = 100,
+  limit: number = 200,
   refreshInterval: number = 30000,
   autoRefresh: boolean = true
 ) {

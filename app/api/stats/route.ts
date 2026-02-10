@@ -4,7 +4,7 @@ import { fetchTrendingTokens, analyzeTokens, computeStats } from '@/lib/pumpfun-
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const limit = parseInt(searchParams.get('limit') || '200');
 
     const tokens = await fetchTrendingTokens(limit);
     const analyzed = analyzeTokens(tokens);

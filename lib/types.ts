@@ -136,7 +136,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   refreshInterval: 30000,
-  tokensToFetch: 100,
+  tokensToFetch: 200,
   minUtilityScore: 0,
   theme: 'dark',
   notifications: true,

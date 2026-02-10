@@ -419,7 +419,7 @@ async function fetchPumpFunFromGeckoTerminal(
 // ============================================================================
 
 export async function fetchTrendingTokens(
-  limit: number = 100
+  limit: number = 200
 ): Promise<PumpFunToken[]> {
   // Strategy 1: Birdeye API (rich data, all Solana trending tokens)
   if (BIRDEYE_KEY) {

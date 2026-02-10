@@ -107,10 +107,11 @@ export default function SettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="10">10 tokens</SelectItem>
                 <SelectItem value="20">20 tokens</SelectItem>
                 <SelectItem value="50">50 tokens</SelectItem>
                 <SelectItem value="100">100 tokens</SelectItem>
+                <SelectItem value="200">200 tokens</SelectItem>
+                <SelectItem value="300">300 tokens</SelectItem>
               </SelectContent>
             </Select>
           </div>

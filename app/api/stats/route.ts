@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '100');
 
-    const tokens = await fetchTrendingTokens(limit, 0, 'market_cap', 'DESC');
+    const tokens = await fetchTrendingTokens(limit);
     const analyzed = analyzeTokens(tokens);
     const stats = computeStats(analyzed);
 

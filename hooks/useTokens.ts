@@ -92,6 +92,11 @@ export function useTokens(
       );
     }
 
+    // Pump.fun only filter
+    if (filters.pumpFunOnly) {
+      result = result.filter((t) => t.isPumpFun);
+    }
+
     // Sorting
     result.sort((a, b) => {
       let comparison = 0;
@@ -110,6 +115,12 @@ export function useTokens(
           break;
         case 'name':
           comparison = a.name.localeCompare(b.name);
+          break;
+        case 'volume24h':
+          comparison = (a.volume24hUSD || 0) - (b.volume24hUSD || 0);
+          break;
+        case 'price_change':
+          comparison = (a.price24hChangePercent || 0) - (b.price24hChangePercent || 0);
           break;
       }
       return filters.sortOrder === 'desc' ? -comparison : comparison;

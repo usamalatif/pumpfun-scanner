@@ -1,5 +1,5 @@
 // ============================================================================
-// Pump.fun Token Analytics - Type Definitions
+// Solana Token Analytics - Type Definitions
 // ============================================================================
 
 export interface PumpFunToken {
@@ -32,6 +32,24 @@ export interface PumpFunToken {
   usd_market_cap: number;
   username: string | null;
   profile_image: string | null;
+
+  // Birdeye-enriched fields
+  isPumpFun?: boolean;
+  price?: number;
+  liquidity?: number;
+  volume24hUSD?: number;
+  price24hChangePercent?: number;
+  volume24hChangePercent?: number;
+  rank?: number;
+
+  // Detail-only fields (from Birdeye token_overview)
+  holder?: number;
+  uniqueWallet24h?: number;
+  trade24h?: number;
+  buy24h?: number;
+  sell24h?: number;
+  vBuy24hUSD?: number;
+  vSell24hUSD?: number;
 }
 
 export interface UtilityAnalysis {
@@ -79,6 +97,7 @@ export interface TokenStats {
   topUtilityTokens: AnalyzedToken[];
   distributionByClassification: Record<Classification, number>;
   marketCapByClassification: Record<Classification, number>;
+  pumpFunCount?: number;
 }
 
 export interface TokenFilters {
@@ -92,6 +111,7 @@ export interface TokenFilters {
   hasSocials: boolean | null;
   sortBy: SortField;
   sortOrder: 'asc' | 'desc';
+  pumpFunOnly?: boolean;
 }
 
 export type SortField =
@@ -99,7 +119,9 @@ export type SortField =
   | 'utility_score'
   | 'created_timestamp'
   | 'reply_count'
-  | 'name';
+  | 'name'
+  | 'volume24h'
+  | 'price_change';
 
 export interface AppSettings {
   refreshInterval: number;

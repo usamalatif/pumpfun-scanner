@@ -5,11 +5,8 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '100');
-    const offset = parseInt(searchParams.get('offset') || '0');
-    const sort = searchParams.get('sort') || 'market_cap';
-    const order = searchParams.get('order') || 'DESC';
 
-    const tokens = await fetchTrendingTokens(limit, offset, sort, order);
+    const tokens = await fetchTrendingTokens(limit);
     const analyzed = analyzeTokens(tokens);
 
     return NextResponse.json({

@@ -50,6 +50,11 @@ export interface PumpFunToken {
   sell24h?: number;
   vBuy24hUSD?: number;
   vSell24hUSD?: number;
+
+  // Bonding curve & DEX platform
+  bondingCurveProgress?: number; // 0-100, null if unknown
+  isGraduated?: boolean; // graduated off bonding curve
+  dexPlatform?: 'bonding_curve' | 'pumpswap' | 'raydium' | 'unknown';
 }
 
 export interface UtilityAnalysis {

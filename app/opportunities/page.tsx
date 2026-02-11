@@ -232,8 +232,42 @@ export default function OpportunitiesPage() {
           Launch Opportunities
         </h1>
         <p className="text-muted-foreground mt-1">
-          Find the best niches to launch your next token. Based on {allTokens.length} trending tokens.
+          Find the best niches to launch your next pump.fun token. Based on {allTokens.length} pump.fun tokens.
         </p>
+      </div>
+
+      {/* Platform Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold">{allTokens.length}</div>
+            <div className="text-xs text-muted-foreground">Pump.fun Tokens</div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-amber-400">
+              {allTokens.filter((t) => t.dexPlatform === 'bonding_curve').length}
+            </div>
+            <div className="text-xs text-muted-foreground">On Bonding Curve</div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-emerald-400">
+              {allTokens.filter((t) => t.dexPlatform === 'pumpswap').length}
+            </div>
+            <div className="text-xs text-muted-foreground">On PumpSwap</div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-400">
+              {allTokens.filter((t) => t.dexPlatform === 'raydium').length}
+            </div>
+            <div className="text-xs text-muted-foreground">On Raydium</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Winning Formulas */}

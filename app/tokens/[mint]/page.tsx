@@ -29,6 +29,8 @@ import { useTokenDetail } from '@/hooks/useTokenDetail';
 import { formatMarketCap, formatDate, truncateAddress } from '@/lib/utils';
 import { useState } from 'react';
 
+const GRADUATION_MCAP = 69_000;
+
 export default function TokenDetailPage() {
   const params = useParams();
   const mint = params.mint as string;
@@ -126,6 +128,15 @@ export default function TokenDetailPage() {
                       ${token.symbol}
                     </Badge>
                     {token.isPumpFun && <Badge variant="pumpfun">Pump.fun</Badge>}
+                    {token.dexPlatform === 'pumpswap' && (
+                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">PumpSwap</Badge>
+                    )}
+                    {token.dexPlatform === 'raydium' && (
+                      <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20">Raydium</Badge>
+                    )}
+                    {token.dexPlatform === 'bonding_curve' && (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20">On Curve</Badge>
+                    )}
                     <ClassificationBadge classification={token.analysis.classification} />
                   </div>
 
@@ -213,6 +224,56 @@ export default function TokenDetailPage() {
               sub={token.reply_count ? `${token.reply_count} replies` : undefined}
             />
           </div>
+
+          {/* Bonding Curve / DEX Status */}
+          {token.isPumpFun && token.bondingCurveProgress != null && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  {token.isGraduated ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      Graduated - Trading on {token.dexPlatform === 'pumpswap' ? 'PumpSwap' : token.dexPlatform === 'raydium' ? 'Raydium' : 'DEX'}
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4 text-amber-500" />
+                      Bonding Curve Progress
+                    </>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Progress to graduation</span>
+                    <span className="font-medium">{token.bondingCurveProgress}%</span>
+                  </div>
+                  <div className="h-4 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        token.bondingCurveProgress >= 100
+                          ? 'bg-emerald-500'
+                          : token.bondingCurveProgress >= 75
+                            ? 'bg-amber-500'
+                            : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${token.bondingCurveProgress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Launch</span>
+                    <span>~$69K MCap (Graduation)</span>
+                  </div>
+                  {!token.isGraduated && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formatMarketCap(Math.max(0, GRADUATION_MCAP - (token.usd_market_cap || 0)))} away from graduating to {token.usd_market_cap && token.usd_market_cap > 50_000 ? 'PumpSwap' : 'PumpSwap/Raydium'}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Buy/Sell Pressure */}
           {(token.buy24h != null || token.vBuy24hUSD != null) && (
@@ -361,11 +422,16 @@ export default function TokenDetailPage() {
               <InfoRow label="Mint" value={truncateAddress(token.mint, 6)} />
               <InfoRow label="Creator" value={truncateAddress(token.creator, 6)} />
               {token.rank != null && <InfoRow label="Birdeye Rank" value={`#${token.rank}`} />}
-              <InfoRow label="Complete" value={token.complete ? 'Yes' : 'No'} />
               <InfoRow
-                label="Raydium Pool"
-                value={token.raydium_pool ? truncateAddress(token.raydium_pool, 6) : 'N/A'}
+                label="DEX Platform"
+                value={
+                  token.dexPlatform === 'pumpswap' ? 'PumpSwap'
+                    : token.dexPlatform === 'raydium' ? 'Raydium'
+                      : token.dexPlatform === 'bonding_curve' ? 'Bonding Curve'
+                        : token.isPumpFun ? 'Pump.fun' : 'Unknown'
+                }
               />
+              <InfoRow label="Graduated" value={token.isGraduated ? 'Yes' : 'No'} />
               <InfoRow label="NSFW" value={token.nsfw ? 'Yes' : 'No'} />
             </CardContent>
           </Card>

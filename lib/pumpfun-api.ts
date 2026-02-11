@@ -262,6 +262,109 @@ async function fetchTokenFromBirdeye(
 }
 
 // ============================================================================
+// Bonding Curve & DEX Platform Detection
+// ============================================================================
+
+// Pump.fun bonding curve graduation threshold (~$69K mcap / ~85 SOL)
+const GRADUATION_MCAP_USD = 69_000;
+
+function estimateBondingCurve(token: PumpFunToken): void {
+  if (!token.isPumpFun) return;
+
+  const mcap = token.usd_market_cap || 0;
+  const liq = token.liquidity || 0;
+
+  if (mcap > GRADUATION_MCAP_USD || liq > 50_000) {
+    token.isGraduated = true;
+    token.bondingCurveProgress = 100;
+    if (!token.dexPlatform) token.dexPlatform = 'unknown';
+  } else {
+    token.isGraduated = false;
+    token.bondingCurveProgress = mcap > 0
+      ? Math.min(99, Math.round((mcap / GRADUATION_MCAP_USD) * 100))
+      : 0;
+    token.dexPlatform = 'bonding_curve';
+  }
+}
+
+interface DexScreenerFullPair {
+  chainId: string;
+  dexId: string;
+  baseToken: { address: string };
+  info?: {
+    imageUrl?: string;
+    websites?: Array<{ url: string }>;
+    socials?: Array<{ type: string; url: string }>;
+  };
+}
+
+async function enrichWithDexScreener(tokens: PumpFunToken[]): Promise<void> {
+  const toEnrich = tokens.filter(
+    (t) => t.isPumpFun && t.isGraduated && t.dexPlatform === 'unknown'
+  );
+  if (toEnrich.length === 0) return;
+
+  const addresses = toEnrich.map((t) => t.mint);
+  const dexMap = new Map<string, string>();
+
+  const batchPromises = [];
+  for (let i = 0; i < addresses.length; i += 30) {
+    const batch = addresses.slice(i, i + 30).join(',');
+    batchPromises.push(
+      fetch(`${DEXSCREENER_API}/latest/dex/tokens/${batch}`, {
+        cache: 'no-store',
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+    );
+  }
+
+  const results = await Promise.all(batchPromises);
+  for (const result of results) {
+    if (!result?.pairs) continue;
+    for (const pair of result.pairs as DexScreenerFullPair[]) {
+      if (pair.chainId !== 'solana') continue;
+      const addr = pair.baseToken.address;
+      if (dexMap.has(addr)) continue;
+
+      const dexId = (pair.dexId || '').toLowerCase();
+      if (dexId.includes('pumpswap') || dexId.includes('pump_swap') || dexId.includes('pumpfun')) {
+        dexMap.set(addr, 'pumpswap');
+      } else if (dexId.includes('raydium')) {
+        dexMap.set(addr, 'raydium');
+      } else {
+        dexMap.set(addr, 'raydium');
+      }
+
+      // Enrich social data if missing
+      if (pair.info) {
+        const token = toEnrich.find((t) => t.mint === addr);
+        if (token) {
+          if (!token.website && pair.info.websites?.[0]?.url) {
+            token.website = pair.info.websites[0].url;
+          }
+          if (!token.twitter) {
+            const tw = pair.info.socials?.find((s) => s.type === 'twitter');
+            if (tw) token.twitter = tw.url.split('/').pop() || null;
+          }
+          if (!token.telegram) {
+            const tg = pair.info.socials?.find((s) => s.type === 'telegram');
+            if (tg) token.telegram = tg.url.split('/').pop() || null;
+          }
+        }
+      }
+    }
+  }
+
+  for (const token of toEnrich) {
+    const platform = dexMap.get(token.mint);
+    if (platform) {
+      token.dexPlatform = platform as PumpFunToken['dexPlatform'];
+    }
+  }
+}
+
+// ============================================================================
 // GeckoTerminal fallback (pump.fun specific, free, no key)
 // ============================================================================
 
@@ -449,40 +552,72 @@ async function fetchPumpFunFromGeckoTerminal(
 export async function fetchTrendingTokens(
   limit: number = 200
 ): Promise<PumpFunToken[]> {
-  // Primary: Birdeye API with multiple sort strategies for 300+ tokens
+  let allTokens: PumpFunToken[] = [];
+
+  // Primary: Birdeye API - fetch extra to have enough after pump.fun filter
   if (BIRDEYE_KEY) {
     try {
-      const tokens = await fetchTrendingFromBirdeye(limit);
-      if (tokens.length > 0) {
+      // Request 3x since only ~30-50% of trending tokens are pump.fun
+      const rawTokens = await fetchTrendingFromBirdeye(Math.min(limit * 3, 300));
+      if (rawTokens.length > 0) {
+        const pumpFunTokens = rawTokens.filter((t) => t.isPumpFun);
         console.log(
-          `Loaded ${tokens.length} trending tokens from Birdeye ` +
-            `(${tokens.filter((t) => t.isPumpFun).length} pump.fun)`
+          `Birdeye: ${rawTokens.length} total, ${pumpFunTokens.length} pump.fun tokens`
         );
-        return tokens;
+        allTokens = pumpFunTokens;
       }
     } catch (e) {
       console.warn('Birdeye API failed:', e);
     }
   }
 
-  // Fallback: GeckoTerminal pump.fun pools (no API key needed)
-  try {
-    const tokens = await fetchPumpFunFromGeckoTerminal(limit);
-    if (tokens.length > 0) {
-      console.log(`Loaded ${tokens.length} pump.fun tokens from GeckoTerminal`);
-      return tokens;
+  // Supplement with GeckoTerminal if we need more pump.fun tokens
+  if (allTokens.length < limit) {
+    try {
+      const geckoTokens = await fetchPumpFunFromGeckoTerminal(limit);
+      if (geckoTokens.length > 0) {
+        const seen = new Set(allTokens.map((t) => t.mint));
+        for (const token of geckoTokens) {
+          if (!seen.has(token.mint)) {
+            seen.add(token.mint);
+            allTokens.push(token);
+          }
+        }
+        console.log(`After GeckoTerminal supplement: ${allTokens.length} pump.fun tokens`);
+      }
+    } catch (e) {
+      console.warn('GeckoTerminal supplement failed:', e);
     }
-  } catch (e) {
-    console.warn('GeckoTerminal fallback failed:', e);
   }
 
-  return [];
+  if (allTokens.length === 0) return [];
+
+  // Estimate bonding curve progress for all pump.fun tokens
+  for (const token of allTokens) {
+    estimateBondingCurve(token);
+  }
+
+  // Enrich graduated tokens with DexScreener for PumpSwap/Raydium detection
+  await enrichWithDexScreener(allTokens);
+
+  console.log(
+    `Final: ${allTokens.length} pump.fun tokens ` +
+    `(${allTokens.filter((t) => t.dexPlatform === 'bonding_curve').length} on curve, ` +
+    `${allTokens.filter((t) => t.dexPlatform === 'pumpswap').length} PumpSwap, ` +
+    `${allTokens.filter((t) => t.dexPlatform === 'raydium').length} Raydium)`
+  );
+
+  return allTokens.slice(0, limit);
 }
 
 export async function fetchTokenByMint(mint: string): Promise<PumpFunToken> {
   // Strategy 1: Birdeye token_overview (rich detail)
   const birdeyeToken = await fetchTokenFromBirdeye(mint);
-  if (birdeyeToken) return birdeyeToken;
+  if (birdeyeToken) {
+    estimateBondingCurve(birdeyeToken);
+    await enrichWithDexScreener([birdeyeToken]);
+    return birdeyeToken;
+  }
 
   // Strategy 2: GeckoTerminal + DexScreener
   try {

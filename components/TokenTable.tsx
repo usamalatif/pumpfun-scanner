@@ -63,7 +63,7 @@ export function TokenTable({ tokens, sortBy, onSort }: TokenTableProps) {
             <th className="text-left py-3 px-4 font-medium">
               <SortHeader label="Volume 24h" field="volume24h" currentSort={sortBy} onSort={onSort} />
             </th>
-            <th className="text-left py-3 px-4 font-medium">Source</th>
+            <th className="text-left py-3 px-4 font-medium">Status</th>
             <th className="text-left py-3 px-4 font-medium">Socials</th>
             <th className="text-right py-3 px-4 font-medium">Actions</th>
           </tr>
@@ -121,11 +121,25 @@ export function TokenTable({ tokens, sortBy, onSort }: TokenTableProps) {
                 {token.volume24hUSD ? formatMarketCap(token.volume24hUSD) : '-'}
               </td>
               <td className="py-3 px-4">
-                {token.isPumpFun ? (
-                  <Badge variant="pumpfun" className="text-[10px] px-1.5 py-0">Pump.fun</Badge>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Solana</span>
-                )}
+                <div className="flex flex-col gap-1">
+                  {token.dexPlatform === 'bonding_curve' ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-16 bg-muted rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full"
+                          style={{ width: `${token.bondingCurveProgress || 0}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-amber-400 font-medium">{token.bondingCurveProgress || 0}%</span>
+                    </div>
+                  ) : token.dexPlatform === 'pumpswap' ? (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">PumpSwap</Badge>
+                  ) : token.dexPlatform === 'raydium' ? (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-500/10 text-purple-400 border-purple-500/20">Raydium</Badge>
+                  ) : (
+                    <Badge variant="pumpfun" className="text-[10px] px-1.5 py-0">Pump.fun</Badge>
+                  )}
+                </div>
               </td>
               <td className="py-3 px-4">
                 <SocialLinks
